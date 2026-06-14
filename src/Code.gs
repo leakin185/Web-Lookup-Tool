@@ -46,3 +46,45 @@ function isSocialOrAggregator(url) {
   const lower = url.toLowerCase();
   return [...SOCIAL_DOMAINS, ...AGGREGATOR_DOMAINS].some(d => lower.includes(d));
 }
+
+// ── Search helpers ─────────────────────────────────────────────
+function duckDuckGoSearch(query) {
+  const url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    if (res.getResponseCode() === 200) return res.getContentText();
+  } catch (e) {
+    Logger.log('duckDuckGoSearch error: ' + e.message);
+  }
+  return '';
+}
+
+/**
+ * Extracts actual destination URLs from DuckDuckGo's uddg= redirect params.
+ */
+function extractUrlsFromHtml(html) {
+  const urls = [];
+  const re = /uddg=([^&"'\s>]+)/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const decoded = decodeURIComponent(m[1]);
+      if (decoded.startsWith('http') && !urls.includes(decoded)) urls.push(decoded);
+    } catch (e) {}
+  }
+  return urls;
+}
+
+/** Run in Apps Script editor: Execution → testSearchHelpers */
+function testSearchHelpers() {
+  const html = duckDuckGoSearch('Alfa Omega Church Indonesia official website');
+  Logger.log('HTML length: ' + html.length);
+  const urls = extractUrlsFromHtml(html);
+  Logger.log('URLs found (' + urls.length + '):');
+  urls.forEach(u => Logger.log('  ' + u));
+  // Expected: list includes alfaomegachurch.com and/or its social pages
+}
