@@ -240,3 +240,61 @@ function testProcessRow() {
   Logger.log('Processed: ' + processed);
   // Then open the sheet and check that row — Website and Status columns should be filled.
 }
+
+// ── Menu ───────────────────────────────────────────────────────
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('⛪ Church Lookup')
+    .addItem('Lookup This Row', 'lookupSelectedRow')
+    .addSeparator()
+    .addItem('Lookup All Incomplete (batch of 20)', 'lookupAllIncomplete')
+    .addToUi();
+}
+
+// ── Single-row action ──────────────────────────────────────────
+function lookupSelectedRow() {
+  const sheet     = getChurchSheet();
+  const activeRow = sheet.getActiveCell().getRow();
+  const headerRow = findHeaderRow(sheet);
+
+  if (activeRow <= headerRow) {
+    SpreadsheetApp.getUi().alert('Please select a church data row (not the header).');
+    return;
+  }
+
+  const processed = processRow(sheet, activeRow);
+  SpreadsheetApp.getUi().alert(
+    processed
+      ? '✅ Done! Results filled in. Status set to "To Be Verified" — please review.'
+      : '⏭ Row skipped — it already has a website, the church name is blank, or status is Complete.'
+  );
+}
+
+// ── Batch action ───────────────────────────────────────────────
+function lookupAllIncomplete() {
+  const ui        = SpreadsheetApp.getUi();
+  const sheet     = getChurchSheet();
+  const headerRow = findHeaderRow(sheet);
+  const lastRow   = sheet.getLastRow();
+
+  let count = 0;
+  for (let row = headerRow + 1; row <= lastRow && count < BATCH_SIZE; row++) {
+    const values     = sheet.getRange(row, 1, 1, COL.STATUS).getValues()[0];
+    const churchName = String(values[COL.CHURCH  - 1] || '').trim();
+    const website    = String(values[COL.WEBSITE  - 1] || '').trim();
+    const status     = String(values[COL.STATUS   - 1] || '').trim().toLowerCase();
+
+    if (!churchName || website || status === STATUS_COMPLETE) continue;
+
+    processRow(sheet, row);
+    count++;
+    SpreadsheetApp.flush(); // write each row immediately so progress is visible
+    Utilities.sleep(500);   // brief pause to avoid rate-limiting
+  }
+
+  ui.alert(
+    count > 0
+      ? '✅ Done — processed ' + count + ' churches. Status set to "To Be Verified". Run again for more.'
+      : '✅ No incomplete churches found in this batch. All done!'
+  );
+}
