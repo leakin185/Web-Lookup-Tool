@@ -188,3 +188,55 @@ function testLookupChurch() {
   // Expected: website contains "alfaomegachurch"
   // instagram and/or facebook should be non-null
 }
+
+// ── Row processing ─────────────────────────────────────────────
+/**
+ * Looks up the church on `rowNum` and writes results to the sheet.
+ * Returns true if the row was processed, false if skipped.
+ *
+ * Skip conditions:
+ *   - Church name (col E) is empty
+ *   - Website (col G) already has a value
+ *   - Status (col O) is "complete" (case-insensitive)
+ */
+function processRow(sheet, rowNum) {
+  const values = sheet.getRange(rowNum, 1, 1, COL.STATUS).getValues()[0];
+  const churchName = String(values[COL.CHURCH  - 1] || '').trim();
+  const country    = String(values[COL.COUNTRY  - 1] || '').trim();
+  const website    = String(values[COL.WEBSITE  - 1] || '').trim();
+  const status     = String(values[COL.STATUS   - 1] || '').trim().toLowerCase();
+
+  if (!churchName || website || status === STATUS_COMPLETE) return false;
+
+  const result = lookupChurch(churchName, country);
+
+  // Write only to empty cells
+  function writeIfEmpty(col, value) {
+    if (value && !sheet.getRange(rowNum, col).getValue()) {
+      sheet.getRange(rowNum, col).setValue(value);
+    }
+  }
+
+  writeIfEmpty(COL.WEBSITE,   result.website);
+  writeIfEmpty(COL.INSTAGRAM, result.instagram);
+  writeIfEmpty(COL.FACEBOOK,  result.facebook);
+  writeIfEmpty(COL.YOUTUBE,   result.youtube);
+  writeIfEmpty(COL.INFO,      result.info || 'Not found');
+
+  // Always set status to "To Be Verified" (overwrite whatever was there)
+  sheet.getRange(rowNum, COL.STATUS).setValue(STATUS_TO_VERIFY);
+
+  return true;
+}
+
+/**
+ * Processes a specific row number for manual testing.
+ * Change ROW_TO_TEST to a row in the Churches tab that has a church name but no website.
+ */
+function testProcessRow() {
+  const ROW_TO_TEST = 3; // adjust to a real empty row in your sheet
+  const sheet = getChurchSheet();
+  const processed = processRow(sheet, ROW_TO_TEST);
+  Logger.log('Processed: ' + processed);
+  // Then open the sheet and check that row — Website and Status columns should be filled.
+}
