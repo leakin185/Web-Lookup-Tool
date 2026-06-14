@@ -185,9 +185,12 @@ function processRow(sheet, rowNum) {
   const result = lookupChurch(churchName, country);
 
   // Write only to empty cells (uses initial batch read to avoid extra API calls)
+  let wroteAnything = false;
+
   function writeIfEmpty(col, value) {
     if (value && !String(values[col - 1] || '').trim()) {
       sheet.getRange(rowNum, col).setValue(value);
+      wroteAnything = true;
     }
   }
 
@@ -195,10 +198,16 @@ function processRow(sheet, rowNum) {
   writeIfEmpty(COL.INSTAGRAM, result.instagram);
   writeIfEmpty(COL.FACEBOOK,  result.facebook);
   writeIfEmpty(COL.YOUTUBE,   result.youtube);
-  writeIfEmpty(COL.INFO,      result.info || 'Not found');
+  writeIfEmpty(COL.INFO,      result.info);
 
-  // Always set status to "To Be Verified" (overwrite whatever was there)
-  sheet.getRange(rowNum, COL.STATUS).setValue(STATUS_TO_VERIFY);
+  if (wroteAnything) {
+    sheet.getRange(rowNum, COL.STATUS).setValue(STATUS_TO_VERIFY);
+  } else {
+    // Nothing found — write "Not found" to Info only if it's currently empty
+    if (!String(values[COL.INFO - 1] || '').trim()) {
+      sheet.getRange(rowNum, COL.INFO).setValue('Not found');
+    }
+  }
 
   return true;
 }
@@ -239,6 +248,7 @@ function lookupAllIncomplete() {
   const headerRow = findHeaderRow(sheet);
   const lastRow   = sheet.getLastRow();
 
+  const startTime = Date.now();
   let count = 0;
   for (let row = headerRow + 1; row <= lastRow && count < BATCH_SIZE; row++) {
     const values     = sheet.getRange(row, 1, 1, COL.STATUS).getValues()[0];
@@ -247,6 +257,11 @@ function lookupAllIncomplete() {
     const status     = String(values[COL.STATUS   - 1] || '').trim().toLowerCase();
 
     if (!churchName || website || status === STATUS_COMPLETE) continue;
+
+    if (Date.now() - startTime > 270000) { // 4m30s safety margin
+      ui.alert('⏱ Approaching time limit — processed ' + count + ' churches so far. Run again to continue.');
+      return;
+    }
 
     processRow(sheet, row);
     count++;
