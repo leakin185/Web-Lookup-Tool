@@ -210,9 +210,9 @@ function processRow(sheet, rowNum) {
 
   const result = lookupChurch(churchName, country);
 
-  // Write only to empty cells
+  // Write only to empty cells (uses initial batch read to avoid extra API calls)
   function writeIfEmpty(col, value) {
-    if (value && !sheet.getRange(rowNum, col).getValue()) {
+    if (value && !String(values[col - 1] || '').trim()) {
       sheet.getRange(rowNum, col).setValue(value);
     }
   }
