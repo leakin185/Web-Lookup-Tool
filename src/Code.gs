@@ -88,3 +88,61 @@ function testSearchHelpers() {
   urls.forEach(u => Logger.log('  ' + u));
   // Expected: list includes alfaomegachurch.com and/or its social pages
 }
+
+// ── Website enrichment ─────────────────────────────────────────────
+/**
+ * Visits the church's own website and fills in any missing social links
+ * and a short description from the <meta> tags.
+ * Modifies `result` in place.
+ */
+function enrichFromWebsite(result) {
+  try {
+    const res = UrlFetchApp.fetch(result.website, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+    if (res.getResponseCode() !== 200) return;
+    const html = res.getContentText();
+
+    // Description: try og:description then name=description
+    if (!result.info) {
+      const descRe = [
+        /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']{20,400})["']/i,
+        /<meta[^>]+content=["']([^"']{20,400})["'][^>]+property=["']og:description["']/i,
+        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']{20,400})["']/i,
+        /<meta[^>]+content=["']([^"']{20,400})["'][^>]+name=["']description["']/i
+      ];
+      for (const re of descRe) {
+        const m = html.match(re);
+        if (m) { result.info = m[1].trim(); break; }
+      }
+    }
+
+    // Social links from page HTML
+    const socialRe = /https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|youtube\.com)\/[^\s"'<>)\]]+/gi;
+    let m;
+    while ((m = socialRe.exec(html)) !== null) {
+      const url  = m[0].replace(/[,;.]+$/, ''); // strip trailing punctuation
+      const host = m[1].toLowerCase();
+      if (host === 'instagram.com' && !result.instagram && !url.includes('/p/') && !url.includes('/reel')) {
+        result.instagram = url;
+      } else if (host === 'facebook.com' && !result.facebook && !url.includes('/sharer') && !url.includes('/share')) {
+        result.facebook = url;
+      } else if (host === 'youtube.com' && !result.youtube &&
+                 (url.includes('/channel/') || url.includes('/@') || url.includes('/user/'))) {
+        result.youtube = url;
+      }
+    }
+  } catch (e) {
+    Logger.log('enrichFromWebsite error: ' + e.message);
+  }
+}
+
+/** Run in Apps Script editor to verify enrichment */
+function testEnrichFromWebsite() {
+  const result = { website: 'https://alfaomegachurch.com/', instagram: null, facebook: null, youtube: null, info: null };
+  enrichFromWebsite(result);
+  Logger.log(JSON.stringify(result, null, 2));
+  // Expected: info contains a non-empty description string
+}
