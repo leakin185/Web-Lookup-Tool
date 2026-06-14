@@ -173,7 +173,7 @@ function lookupChurch(name, country) {
     } else if (!result.website && !isSocialOrAggregator(url)) {
       result.website = url;
     }
-    if (result.website && result.instagram && result.facebook && result.youtube) break;
+    if (result.website && (result.instagram || result.facebook || result.youtube)) break;
   }
 
   if (result.website) enrichFromWebsite(result);
