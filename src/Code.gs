@@ -52,7 +52,11 @@ function duckDuckGoSearch(query) {
   const url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
   try {
     const res = UrlFetchApp.fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      headers: {
+        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
       muteHttpExceptions: true,
       followRedirects: true
     });
@@ -138,9 +142,12 @@ function enrichFromWebsite(result) {
 function lookupChurch(name, country) {
   const result = { website: null, instagram: null, facebook: null, youtube: null, info: null };
 
-  const query = '"' + name + '" ' + (country || '') + ' church';
-  const html  = duckDuckGoSearch(query);
-  const urls  = extractUrlsFromHtml(html);
+  // Try exact-name search first; fall back to unquoted if no URLs come back
+  const countryStr = country ? ' ' + country : '';
+  let urls = extractUrlsFromHtml(duckDuckGoSearch('"' + name + '"' + countryStr + ' church'));
+  if (urls.length === 0) {
+    urls = extractUrlsFromHtml(duckDuckGoSearch(name + countryStr + ' church'));
+  }
 
   for (const url of urls) {
     const lower = url.toLowerCase();
