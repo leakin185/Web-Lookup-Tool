@@ -19,7 +19,8 @@ const SOCIAL_DOMAINS    = ['instagram.com', 'facebook.com', 'youtube.com',
                            'twitter.com', 'x.com', 'linkedin.com', 'tiktok.com'];
 const AGGREGATOR_DOMAINS = ['yelp.com', 'yellowpages', 'tripadvisor.com',
                             'wikipedia.org', 'google.com', 'duckduckgo.com',
-                            'bing.com', 'foursquare.com', 'manta.com'];
+                            'bing.com', 'foursquare.com', 'manta.com',
+                            'yahoo.com', 'search.yahoo.com'];
 
 // ── Sheet helpers ──────────────────────────────────────────────
 function getChurchSheet() {
@@ -67,12 +68,10 @@ function duckDuckGoSearch(query) {
   return '';
 }
 
-/**
- * Extracts actual destination URLs from DuckDuckGo's uddg= redirect params.
- */
-function extractUrlsFromHtml(html) {
+// Extracts destination URLs from DuckDuckGo's uddg= redirect params.
+function extractUrlsFromDDG(html) {
   const urls = [];
-  const re = /uddg=([^&"'\s>]+)/g;
+  const re = /uddg=([^&"'>\s]+)/g;
   let m;
   while ((m = re.exec(html)) !== null) {
     try {
@@ -81,6 +80,47 @@ function extractUrlsFromHtml(html) {
     } catch (e) {}
   }
   return urls;
+}
+
+function yahooSearch(query) {
+  const url = 'https://search.yahoo.com/search?p=' + encodeURIComponent(query);
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      headers: {
+        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    if (res.getResponseCode() === 200) return res.getContentText();
+  } catch (e) {
+    Logger.log('yahooSearch error: ' + e.message);
+  }
+  return '';
+}
+
+// Extracts destination URLs from Yahoo's /RU=<encoded-url>/ redirect params.
+function extractUrlsFromYahoo(html) {
+  const urls = [];
+  const re = /\/RU=(https?[^/\s"']+)\//g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const decoded = decodeURIComponent(m[1]);
+      if (decoded.startsWith('http') && !urls.includes(decoded)) urls.push(decoded);
+    } catch (e) {}
+  }
+  return urls;
+}
+
+// Searches DDG first; falls back to Yahoo if DDG is blocked (returns no URLs).
+function searchUrls(query) {
+  const ddgUrls = extractUrlsFromDDG(duckDuckGoSearch(query));
+  if (ddgUrls.length > 0) return ddgUrls;
+  Logger.log('DDG returned 0 URLs — falling back to Yahoo');
+  return extractUrlsFromYahoo(yahooSearch(query));
 }
 
 // ── Website enrichment ─────────────────────────────────────────────
@@ -142,11 +182,12 @@ function enrichFromWebsite(result) {
 function lookupChurch(name, country) {
   const result = { website: null, instagram: null, facebook: null, youtube: null, info: null };
 
-  // Try exact-name search first; fall back to unquoted if no URLs come back
+  // Try exact-name search first; fall back to unquoted if no URLs come back.
+  // searchUrls() tries DDG first, then Yahoo as backup.
   const countryStr = country ? ' ' + country : '';
-  let urls = extractUrlsFromHtml(duckDuckGoSearch('"' + name + '"' + countryStr + ' church'));
+  let urls = searchUrls('"' + name + '"' + countryStr + ' church');
   if (urls.length === 0) {
-    urls = extractUrlsFromHtml(duckDuckGoSearch(name + countryStr + ' church'));
+    urls = searchUrls(name + countryStr + ' church');
   }
 
   for (const url of urls) {
