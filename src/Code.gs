@@ -79,16 +79,6 @@ function extractUrlsFromHtml(html) {
   return urls;
 }
 
-/** Run in Apps Script editor: Execution → testSearchHelpers */
-function testSearchHelpers() {
-  const html = duckDuckGoSearch('Alfa Omega Church Indonesia official website');
-  Logger.log('HTML length: ' + html.length);
-  const urls = extractUrlsFromHtml(html);
-  Logger.log('URLs found (' + urls.length + '):');
-  urls.forEach(u => Logger.log('  ' + u));
-  // Expected: list includes alfaomegachurch.com and/or its social pages
-}
-
 // ── Website enrichment ─────────────────────────────────────────────
 /**
  * Visits the church's own website and fills in any missing social links
@@ -139,14 +129,6 @@ function enrichFromWebsite(result) {
   }
 }
 
-/** Run in Apps Script editor to verify enrichment */
-function testEnrichFromWebsite() {
-  const result = { website: 'https://alfaomegachurch.com/', instagram: null, facebook: null, youtube: null, info: null };
-  enrichFromWebsite(result);
-  Logger.log(JSON.stringify(result, null, 2));
-  // Expected: info contains a non-empty description string
-}
-
 // ── Lookup orchestrator ────────────────────────────────────────
 /**
  * Given a church name and country, returns:
@@ -179,14 +161,6 @@ function lookupChurch(name, country) {
   if (result.website) enrichFromWebsite(result);
 
   return result;
-}
-
-/** Run in Apps Script editor */
-function testLookupChurch() {
-  const result = lookupChurch('Alfa Omega Church', 'Indonesia');
-  Logger.log(JSON.stringify(result, null, 2));
-  // Expected: website contains "alfaomegachurch"
-  // instagram and/or facebook should be non-null
 }
 
 // ── Row processing ─────────────────────────────────────────────
@@ -227,18 +201,6 @@ function processRow(sheet, rowNum) {
   sheet.getRange(rowNum, COL.STATUS).setValue(STATUS_TO_VERIFY);
 
   return true;
-}
-
-/**
- * Processes a specific row number for manual testing.
- * Change ROW_TO_TEST to a row in the Churches tab that has a church name but no website.
- */
-function testProcessRow() {
-  const ROW_TO_TEST = 3; // adjust to a real empty row in your sheet
-  const sheet = getChurchSheet();
-  const processed = processRow(sheet, ROW_TO_TEST);
-  Logger.log('Processed: ' + processed);
-  // Then open the sheet and check that row — Website and Status columns should be filled.
 }
 
 // ── Menu ───────────────────────────────────────────────────────
