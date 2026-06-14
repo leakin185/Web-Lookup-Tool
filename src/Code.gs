@@ -146,3 +146,45 @@ function testEnrichFromWebsite() {
   Logger.log(JSON.stringify(result, null, 2));
   // Expected: info contains a non-empty description string
 }
+
+// ── Lookup orchestrator ────────────────────────────────────────
+/**
+ * Given a church name and country, returns:
+ * { website, instagram, facebook, youtube, info }
+ * Any field may be null if not found.
+ */
+function lookupChurch(name, country) {
+  const result = { website: null, instagram: null, facebook: null, youtube: null, info: null };
+
+  const query = '"' + name + '" ' + (country || '') + ' church';
+  const html  = duckDuckGoSearch(query);
+  const urls  = extractUrlsFromHtml(html);
+
+  for (const url of urls) {
+    const lower = url.toLowerCase();
+    if (lower.includes('instagram.com') && !lower.includes('/p/') && !lower.includes('/reel') && !result.instagram) {
+      result.instagram = url;
+    } else if (lower.includes('facebook.com') && !lower.includes('/sharer') && !lower.includes('/share') && !result.facebook) {
+      result.facebook = url;
+    } else if (lower.includes('youtube.com') &&
+               (lower.includes('/channel/') || lower.includes('/@') || lower.includes('/user/')) &&
+               !result.youtube) {
+      result.youtube = url;
+    } else if (!result.website && !isSocialOrAggregator(url)) {
+      result.website = url;
+    }
+    if (result.website && result.instagram && result.facebook && result.youtube) break;
+  }
+
+  if (result.website) enrichFromWebsite(result);
+
+  return result;
+}
+
+/** Run in Apps Script editor */
+function testLookupChurch() {
+  const result = lookupChurch('Alfa Omega Church', 'Indonesia');
+  Logger.log(JSON.stringify(result, null, 2));
+  // Expected: website contains "alfaomegachurch"
+  // instagram and/or facebook should be non-null
+}
