@@ -71,6 +71,17 @@ Appears automatically for every user who opens the sheet.
 | `extractUrlsFromHtml(html)` | Internal | Parses `<a>` tags from search result HTML, returns array of URLs |
 | `enrichFromWebsite(result)` | Internal | Visits the church website, scrapes `<meta>` description and social links from footer/nav |
 
+### Why DuckDuckGo / Yahoo Instead of Google
+
+| Option | Why not |
+|--------|---------|
+| **Google Custom Search API** | Free tier limited to 100 queries/day, then $5 per 1,000. Requires a Google Cloud project, API key, and Custom Search Engine ID — too much setup for a tool meant to be pasted into a sheet by a non-technical PM. |
+| **Google HTML scraping** | Google aggressively blocks automated requests with CAPTCHAs and IP bans. Even `UrlFetchApp` requests from Google's own Apps Script infrastructure get blocked after a few queries. |
+| **DuckDuckGo HTML scraping** | Provides a dedicated lightweight endpoint (`html.duckduckgo.com/html/`) with minimal bot detection. Free, no API key, works reliably with `UrlFetchApp`. |
+| **Yahoo HTML scraping** | Also lenient on bot detection. Used as a fallback when DuckDuckGo is temporarily unavailable. |
+
+None of these are official APIs — the tool scrapes server-rendered HTML search pages directly. This means results could break if the search engine changes its HTML structure, but for a one-time ~200-church research task the tradeoff is acceptable.
+
 ### Search Strategy (free, no API)
 
 1. **Query:** `"Church Name" Country church` → fetch DuckDuckGo HTML results
